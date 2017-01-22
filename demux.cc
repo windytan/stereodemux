@@ -54,8 +54,18 @@ int main(int argc, char **argv) {
   liquid::FIRFilter fir_l_plus_r(127, 15000.0f / srate);
   liquid::FIRFilter fir_l_minus_r(127, 15000.0f / srate);
 
-  liquid::FIRFilter fir_deemph_l(16, 2121.0f / srate);
-  liquid::FIRFilter fir_deemph_r(16, 2121.0f / srate);
+  int N = 2;
+  unsigned int r = N % 2;     // odd/even order
+  unsigned int L = (N-r)/2;   // filter semi-length
+
+  // filter coefficients arrays
+  float B[3*(L+r)];
+  float A[3*(L+r)];
+
+  liquid_iirdes(LIQUID_IIRDES_BUTTER, LIQUID_IIRDES_LOWPASS, LIQUID_IIRDES_SOS,
+      N, 2500.0f / srate, 0.0f, 10.0f, 10.0f, B, A);
+  iirfilt_crcf iir_deemph_l = iirfilt_crcf_create_sos(B, A, L+r);
+  iirfilt_crcf iir_deemph_r = iirfilt_crcf_create_sos(B, A, L+r);
 
   int16_t dc_cancel_buffer[buflen] = {0};
   int dc_cancel_sum = 0;
@@ -101,15 +111,19 @@ int main(int argc, char **argv) {
       float left = (l_plus_r + l_minus_r);
       float right = (l_plus_r - l_minus_r);
 
-      fir_deemph_l.push({left, 0.0f});
-      fir_deemph_r.push({right, 0.0f});
+      std::complex<float> l,r;
 
-      outbuf[n].l = fir_deemph_l.execute().real();
-      outbuf[n].r = fir_deemph_r.execute().real();
+      iirfilt_crcf_execute(iir_deemph_l,std::complex<float>(left, 0.0f),&l);
+      iirfilt_crcf_execute(iir_deemph_r,std::complex<float>(right, 0.0f),&r);
+
+      outbuf[n].l = l.real();
+      outbuf[n].r = r.real();
     }
 
     if (!fwrite(&outbuf, sizeof(stereosample), buflen, stdout))
       return (EXIT_FAILURE);
     fflush(stdout);
   }
+  iirfilt_crcf_destroy(iir_deemph_l);
+  iirfilt_crcf_destroy(iir_deemph_r);
 }
