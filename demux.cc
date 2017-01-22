@@ -45,9 +45,9 @@ int main(int argc, char **argv) {
 
   liquid::NCO nco_pilot_approx(19000.0f * 2 * M_PI / srate);
   liquid::NCO nco_pilot_exact(19000.0f * 2 * M_PI / srate);
-  nco_pilot_exact.setPLLBandwidth(0.00001f);
+  nco_pilot_exact.setPLLBandwidth(0.00005f);
   liquid::NCO nco_stereo(38000.0f * 2 * M_PI / srate);
-  liquid::FIRFilter fir_pilot(127, 2000.0f / srate);
+  liquid::FIRFilter fir_pilot(127, 800.0f / srate);
 
   liquid::WDelay delay(fir_pilot.getGroupDelayAt(4000.0f / srate));
 
@@ -63,12 +63,13 @@ int main(int argc, char **argv) {
   float A[3*(L+r)];
 
   liquid_iirdes(LIQUID_IIRDES_BUTTER, LIQUID_IIRDES_LOWPASS, LIQUID_IIRDES_SOS,
-      N, 2500.0f / srate, 0.0f, 10.0f, 10.0f, B, A);
+      N, 5000.0f / srate, 0.0f, 10.0f, 10.0f, B, A);
   iirfilt_crcf iir_deemph_l = iirfilt_crcf_create_sos(B, A, L+r);
   iirfilt_crcf iir_deemph_r = iirfilt_crcf_create_sos(B, A, L+r);
 
   int16_t dc_cancel_buffer[buflen] = {0};
   int dc_cancel_sum = 0;
+  float dph = 0.0f;
 
   while (fread(&inbuf, sizeof(int16_t), buflen, stdin)) {
 
@@ -91,7 +92,7 @@ int main(int argc, char **argv) {
       std::complex<float> pilot_bp =
         nco_pilot_approx.mixUp(fir_pilot.execute());
 
-      float dph = std::arg(pilot_bp * std::conj(nco_pilot_exact.getComplex()));
+      dph = std::arg(pilot_bp * std::conj(nco_pilot_exact.getComplex()));
 
       nco_stereo.setPhase(2 * nco_pilot_exact.getPhase());
 
@@ -119,6 +120,9 @@ int main(int argc, char **argv) {
       outbuf[n].l = l.real();
       outbuf[n].r = r.real();
     }
+
+    //fprintf(stderr,"%f\n",nco_pilot_exact.getFrequency() / 2.0f / M_PI * srate);
+    //fprintf(stderr,"dph,%f\n",dph);
 
     if (!fwrite(&outbuf, sizeof(stereosample), buflen, stdout))
       return (EXIT_FAILURE);
