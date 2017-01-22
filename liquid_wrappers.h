@@ -26,6 +26,7 @@ class FIRFilter {
   void push(std::complex<float> s);
   std::complex<float> execute();
   float getGroupDelayAt(float f);
+  std::complex<float> getFreqResponseAt(float f);
 
  private:
   firfilt_crcf object_;

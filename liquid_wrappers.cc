@@ -54,6 +54,12 @@ float FIRFilter::getGroupDelayAt(float f) {
   return firfilt_crcf_groupdelay(object_, f);
 }
 
+std::complex<float> FIRFilter::getFreqResponseAt(float f) {
+  std::complex<float> H;
+  firfilt_crcf_freqresponse(object_, f, &H);
+  return H;
+}
+
 NCO::NCO(float freq) : object_(nco_crcf_create(LIQUID_VCO)) {
   nco_crcf_set_frequency(object_, freq);
 }
