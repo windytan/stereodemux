@@ -14,7 +14,7 @@ const float kDefaultRate        = 171000.0f;
 const float kPilotHz            = 19000.0f;
 const float kPLLBandwidthHz     = 9.0f;
 const float kPilotFIRHalfbandHz = 800.0f;
-const float kAudioFIRCutoffHz   = 150000.0f;
+const float kAudioFIRCutoffHz   = 15000.0f;
 const int   kDeEmphasisOrder    = 2;
 const float kDeEmphasisCutoffHz = 5000.0f;
 
@@ -52,17 +52,16 @@ int main(int argc, char **argv) {
   liquid::NCO nco_pilot_exact(kPilotHz * 2 * M_PI / srate);
   nco_pilot_exact.setPLLBandwidth(kPLLBandwidthHz / srate);
   liquid::NCO nco_stereo_subcarrier(2 * kPilotHz * 2 * M_PI / srate);
-  liquid::FIRFilter fir_pilot(1350.0f / srate, kPilotFIRHalfbandHz / srate);
+  liquid::FIRFilter fir_pilot(srate / 1350.0f, kPilotFIRHalfbandHz / srate);
 
   liquid::WDelay audio_delay(fir_pilot.getGroupDelayAt(100.0f / srate));
 
-  liquid::FIRFilter fir_l_plus_r(1350.0f / srate, kAudioFIRCutoffHz / srate);
-  liquid::FIRFilter fir_l_minus_r(1350.0f / srate, kAudioFIRCutoffHz / srate);
+  liquid::FIRFilter fir_l_plus_r(srate / 1350.0f, kAudioFIRCutoffHz / srate);
+  liquid::FIRFilter fir_l_minus_r(srate / 1350.0f, kAudioFIRCutoffHz / srate);
 
   unsigned int r = kDeEmphasisOrder % 2;     // odd/even order
   unsigned int L = (kDeEmphasisOrder-r)/2;   // filter semi-length
 
-  // filter coefficients arrays
   float deemph_coeff_B[3*(L+r)];
   float deemph_coeff_A[3*(L+r)];
 
