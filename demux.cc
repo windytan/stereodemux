@@ -17,6 +17,7 @@ const float kPilotFIRHalfbandHz = 800.0f;
 const float kAudioFIRCutoffHz   = 15000.0f;
 const int   kDeEmphasisOrder    = 2;
 const float kDeEmphasisCutoffHz = 5000.0f;
+const float kStereoGain         = 2.0f;
 
 struct StereoSample {
   int16_t l;
@@ -106,7 +107,7 @@ int main(int argc, char **argv) {
       fir_l_plus_r.push(audio_delay.read());
       fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(audio_delay.read()));
       float l_plus_r  = fir_l_plus_r.execute().real();
-      float l_minus_r = fir_l_minus_r.execute().real();
+      float l_minus_r = kStereoGain * fir_l_minus_r.execute().real();
 
       float left  = (l_plus_r + l_minus_r);
       float right = (l_plus_r - l_minus_r);
