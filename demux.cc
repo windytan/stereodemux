@@ -95,12 +95,12 @@ int main(int argc, char **argv) {
       std::complex<float> pilot_bp =
         nco_pilot_approx.mixUp(fir_pilot.execute());
 
-      float dph = std::arg(pilot_bp * std::conj(nco_pilot_exact.getComplex()));
-
       nco_stereo_subcarrier.setPhase(2 * nco_pilot_exact.getPhase());
 
       nco_pilot_approx.step();
-      nco_pilot_exact.stepPLL(dph);
+      float phase_error =
+          std::arg(pilot_bp * std::conj(nco_pilot_exact.getComplex()));
+      nco_pilot_exact.stepPLL(phase_error);
       nco_pilot_exact.step();
 
       fir_l_plus_r.push(audio_delay.read());
