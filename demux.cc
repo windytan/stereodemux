@@ -79,28 +79,33 @@ int main(int argc, char **argv) {
 
   while (fread(&inbuf, sizeof(inbuf[0]), kBuflen, stdin)) {
     for (int n = 0; n < kBuflen; n++) {
+
+      // Remove DC offset
       dc_cancel_sum -= dc_cancel_buffer[n];
       dc_cancel_buffer[n] = inbuf[n];
       dc_cancel_sum += dc_cancel_buffer[n];
-
       int16_t dc_cancel = dc_cancel_sum / kBuflen;
-
       std::complex<float> insample(1.0f*(inbuf[n] - dc_cancel), 0.0f);
 
+      // Delay audio to match pilot filter delay
       audio_delay.push(insample);
-      fir_pilot.push(nco_pilot_approx.mixDown(insample));
 
+      // Pilot bandpass (mix-down + lowpass + mix-up)
+      fir_pilot.push(nco_pilot_approx.mixDown(insample));
       std::complex<float> pilot =
         nco_pilot_approx.mixUp(fir_pilot.execute());
+      nco_pilot_approx.step();
 
+      // Generate 38 kHz carrier
       nco_stereo_subcarrier.setPhase(2 * nco_pilot_exact.getPhase());
 
-      nco_pilot_approx.step();
+      // Pilot PLL
       float phase_error =
           std::arg(pilot * std::conj(nco_pilot_exact.getComplex()));
       nco_pilot_exact.stepPLL(phase_error);
       nco_pilot_exact.step();
 
+      // Decode stereo
       fir_l_plus_r.push(audio_delay.read());
       fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(audio_delay.read()));
       float l_plus_r  = fir_l_plus_r.execute().real();
@@ -109,8 +114,8 @@ int main(int argc, char **argv) {
       float left  = (l_plus_r + l_minus_r);
       float right = (l_plus_r - l_minus_r);
 
+      // De-emphasis
       std::complex<float> l, r;
-
       iirfilt_crcf_execute(iir_deemph_l, std::complex<float>(left,  0.0f), &l);
       iirfilt_crcf_execute(iir_deemph_r, std::complex<float>(right, 0.0f), &r);
 
