@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   liquid::NCO nco_stereo_subcarrier(2 * kPilotHz * 2 * M_PI / srate);
   liquid::FIRFilter fir_pilot(1350.0f / srate, kPilotFIRHalfbandHz / srate);
 
-  liquid::WDelay audio_delay(fir_pilot.getGroupDelayAt(4000.0f / srate));
+  liquid::WDelay audio_delay(fir_pilot.getGroupDelayAt(100.0f / srate));
 
   liquid::FIRFilter fir_l_plus_r(1350.0f / srate, kAudioFIRCutoffHz / srate);
   liquid::FIRFilter fir_l_minus_r(1350.0f / srate, kAudioFIRCutoffHz / srate);
