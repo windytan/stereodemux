@@ -7,26 +7,6 @@
 
 namespace liquid {
 
-AGC::AGC(float bw, float initial_gain) {
-  object_ = agc_crcf_create();
-  agc_crcf_set_bandwidth(object_, bw);
-  agc_crcf_set_gain(object_, initial_gain);
-}
-
-AGC::~AGC() {
-  agc_crcf_destroy(object_);
-}
-
-std::complex<float> AGC::execute(std::complex<float> s) {
-  std::complex<float> result;
-  agc_crcf_execute(object_, s, &result);
-  return result;
-}
-
-float AGC::getGain() {
-  return agc_crcf_get_gain(object_);
-}
-
 FIRFilter::FIRFilter(int len, float fc, float As, float mu) {
   assert(fc >= 0.0f && fc <= 0.5f);
   assert(As > 0.0f);
@@ -54,10 +34,31 @@ float FIRFilter::getGroupDelayAt(float f) {
   return firfilt_crcf_groupdelay(object_, f);
 }
 
-std::complex<float> FIRFilter::getFreqResponseAt(float f) {
-  std::complex<float> H;
-  firfilt_crcf_freqresponse(object_, f, &H);
-  return H;
+FIRFilterR::FIRFilterR(int len, float fc, float As, float mu) {
+  assert(fc >= 0.0f && fc <= 0.5f);
+  assert(As > 0.0f);
+  assert(mu >= -0.5f && mu <= 0.5f);
+
+  object_ = firfilt_rrrf_create_kaiser(len, fc, As, mu);
+  firfilt_rrrf_set_scale(object_, 2.0f * fc);
+}
+
+FIRFilterR::~FIRFilterR() {
+  firfilt_rrrf_destroy(object_);
+}
+
+void FIRFilterR::push(float s) {
+  firfilt_rrrf_push(object_, s);
+}
+
+float FIRFilterR::execute() {
+  float result;
+  firfilt_rrrf_execute(object_, &result);
+  return result;
+}
+
+float FIRFilterR::getGroupDelayAt(float f) {
+  return firfilt_rrrf_groupdelay(object_, f);
 }
 
 NCO::NCO(float freq) : object_(nco_crcf_create(LIQUID_VCO)) {
@@ -78,11 +79,6 @@ std::complex<float> NCO::mixUp(std::complex<float> s) {
   std::complex<float> result;
   nco_crcf_mix_up(object_, s, &result);
   return result;
-}
-
-void NCO::mixBlockDown(std::complex<float>* x, std::complex<float>* y,
-    int n) {
-  nco_crcf_mix_block_down(object_, x, y, n);
 }
 
 void NCO::step() {
@@ -119,66 +115,20 @@ std::complex<float> NCO::getComplex() {
   return y;
 }
 
-SymSync::SymSync(liquid_firfilt_type ftype, unsigned k, unsigned m,
-    float beta, unsigned num_filters) :
-  object_(symsync_crcf_create_rnyquist(ftype, k, m, beta, num_filters)) {
-}
-
-SymSync::~SymSync() {
-  symsync_crcf_destroy(object_);
-}
-
-void SymSync::setBandwidth(float bw) {
-  symsync_crcf_set_lf_bw(object_, bw);
-}
-
-void SymSync::setOutputRate(unsigned r) {
-  symsync_crcf_set_output_rate(object_, r);
-}
-
-std::vector<std::complex<float>> SymSync::execute(std::complex<float> s_in) {
-  std::complex<float> s_out[8];
-  unsigned n_out = 0;
-  symsync_crcf_execute(object_, &s_in, 1, &s_out[0], &n_out);
-
-  std::vector<std::complex<float>> result(std::begin(s_out), std::end(s_out));
-  result.resize(n_out);
-  return result;
-}
-
-Modem::Modem(modulation_scheme scheme) : object_(modem_create(scheme)) {
-}
-
-Modem::~Modem() {
-  modem_destroy(object_);
-}
-
-unsigned int Modem::demodulate(std::complex<float> sample) {
-  unsigned symbol_out;
-
-  modem_demodulate(object_, sample, &symbol_out);
-
-  return symbol_out;
-}
-
-float Modem::getPhaseError() {
-  return modem_get_demodulator_phase_error(object_);
-}
-
-WDelay::WDelay(int k) : object_(wdelaycf_create(k)) {
+WDelay::WDelay(int k) : object_(wdelayf_create(k)) {
 }
 
 WDelay::~WDelay() {
-  wdelaycf_destroy(object_);
+  wdelayf_destroy(object_);
 }
 
-void WDelay::push(std::complex<float> x) {
-  wdelaycf_push(object_, x);
+void WDelay::push(float x) {
+  wdelayf_push(object_, x);
 }
 
-std::complex<float> WDelay::read() {
-  std::complex<float> y;
-  wdelaycf_read(object_, &y);
+float WDelay::read() {
+  float y;
+  wdelayf_read(object_, &y);
   return y;
 }
 

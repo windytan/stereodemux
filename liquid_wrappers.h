@@ -1,5 +1,4 @@
-#ifndef LIQUID_WRAPPERS_H_
-#define LIQUID_WRAPPERS_H_
+#pragma once
 
 #include <complex>
 #include <vector>
@@ -8,17 +7,6 @@
 
 namespace liquid {
 
-class AGC {
- public:
-  AGC(float bw, float initial_gain);
-  ~AGC();
-  std::complex<float> execute(std::complex<float> s);
-  float getGain();
-
- private:
-  agc_crcf object_;
-};
-
 class FIRFilter {
  public:
   FIRFilter(int len, float fc, float As = 60.0f, float mu = 0.0f);
@@ -26,11 +14,23 @@ class FIRFilter {
   void push(std::complex<float> s);
   std::complex<float> execute();
   float getGroupDelayAt(float f);
-  std::complex<float> getFreqResponseAt(float f);
 
  private:
   firfilt_crcf object_;
 };
+
+class FIRFilterR {
+ public:
+  FIRFilterR(int len, float fc, float As = 60.0f, float mu = 0.0f);
+  ~FIRFilterR();
+  void push(float s);
+  float execute();
+  float getGroupDelayAt(float f);
+
+ private:
+  firfilt_rrrf object_;
+};
+
 
 class NCO {
  public:
@@ -38,8 +38,6 @@ class NCO {
   ~NCO();
   std::complex<float> mixDown(std::complex<float> s);
   std::complex<float> mixUp(std::complex<float> s);
-  void mixBlockDown(std::complex<float>* x, std::complex<float>* y,
-      int n);
   void step();
   void setPLLBandwidth(float);
   void setFrequency(float);
@@ -57,37 +55,11 @@ class WDelay {
  public:
   WDelay(int k);
   ~WDelay();
-  void push(std::complex<float> x);
-  std::complex<float> read();
+  void push(float x);
+  float read();
 
  private:
-  wdelaycf object_;
-};
-
-class SymSync {
- public:
-  SymSync(liquid_firfilt_type ftype, unsigned k, unsigned m,
-          float beta, unsigned num_filters);
-  ~SymSync();
-  void setBandwidth(float);
-  void setOutputRate(unsigned);
-  std::vector<std::complex<float>> execute(std::complex<float> in);
-
- private:
-  symsync_crcf object_;
-};
-
-class Modem {
- public:
-  Modem(modulation_scheme scheme);
-  ~Modem();
-  unsigned int demodulate(std::complex<float> sample);
-  float getPhaseError();
-
- private:
-  modem object_;
+  wdelayf object_;
 };
 
 }  // namespace liquid
-
-#endif // LIQUID_WRAPPERS_H_
