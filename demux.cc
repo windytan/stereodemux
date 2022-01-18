@@ -33,6 +33,17 @@ DeEmphasis::~DeEmphasis() {
   iirfilt_rrrf_destroy(iir_deemph_r);
 }
 
+float DCCancel::run(float in) {
+  sum -= buffer[idx];
+  buffer[idx] = in;
+  sum += buffer[idx];
+  float dc_cancel = sum / kBuflen;
+
+  idx = (idx + 1) % kBuflen;
+
+  return in - dc_cancel;
+}
+
 int main(int argc, char **argv) {
   float srate = kDefaultRate;
 
@@ -62,27 +73,23 @@ int main(int argc, char **argv) {
   liquid::NCO nco_pilot_exact(kPilotHz * 2.f * float(M_PI) / srate);
   nco_pilot_exact.setPLLBandwidth(kPLLBandwidthHz / srate);
   liquid::NCO nco_stereo_subcarrier(2.f * kPilotHz * 2.f * float(M_PI) / srate);
-  liquid::FIRFilter fir_pilot(srate / 1350.0f, kPilotFIRHalfbandHz / srate);
 
-  liquid::WDelay audio_delay(fir_pilot.getGroupDelayAt(100.0f / srate));
+  const int pilotFirHalfLength = srate * 1e-6f * 740.f;
+  liquid::FIRFilter fir_pilot(pilotFirHalfLength * 2 + 1, kPilotFIRHalfbandHz / srate);
 
-  liquid::FIRFilterR fir_l_plus_r(srate / 1350.0f, kAudioFIRCutoffHz / srate);
-  liquid::FIRFilterR fir_l_minus_r(srate / 1350.0f, kAudioFIRCutoffHz / srate);
+  liquid::WDelay audio_delay(pilotFirHalfLength);
+
+  liquid::FIRFilterR fir_l_plus_r (kAudioFIRLengthUsec * 1e-6f * srate, kAudioFIRCutoffHz / srate);
+  liquid::FIRFilterR fir_l_minus_r(kAudioFIRLengthUsec * 1e-6f * srate, kAudioFIRCutoffHz / srate);
 
   DeEmphasis deemphasis(srate);
-
-  float dc_cancel_buffer[kBuflen] = {0};
-  float dc_cancel_sum = 0.f;
+  DCCancel dccancel;
 
   while (fread(&inbuf, sizeof(inbuf[0]), kBuflen, stdin)) {
     for (int n = 0; n < kBuflen; n++) {
 
-      // Remove DC offset
-      dc_cancel_sum -= dc_cancel_buffer[n];
-      dc_cancel_buffer[n] = inbuf[n];
-      dc_cancel_sum += dc_cancel_buffer[n];
-      float dc_cancel = dc_cancel_sum / kBuflen;
-      float insample = (inbuf[n] - dc_cancel);
+      // Maybe not needed?
+      float insample = dccancel.run(inbuf[n]);
 
       // Delay audio to match pilot filter delay
       audio_delay.push(insample);
@@ -103,18 +110,16 @@ int main(int argc, char **argv) {
       nco_pilot_exact.step();
 
       // Decode stereo
-      fir_l_plus_r.push(audio_delay.read());
-      fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(audio_delay.read()).real());
+      float delayed = audio_delay.read();
+      fir_l_plus_r.push(delayed);
+      fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(delayed).imag());
       float l_plus_r  = fir_l_plus_r.execute();
-      float l_minus_r = kStereoGain * fir_l_minus_r.execute();
+      float l_minus_r = 2 * fir_l_minus_r.execute();
 
       float left  = (l_plus_r + l_minus_r);
       float right = (l_plus_r - l_minus_r);
 
-      auto d = deemphasis.run({left, right});
-
-      outbuf[n].l = d.l;
-      outbuf[n].r = d.r;
+      outbuf[n] = deemphasis.run({left, right});
     }
 
     if (!fwrite(&outbuf, sizeof(outbuf[0]), kBuflen, stdout))
