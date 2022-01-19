@@ -1,5 +1,5 @@
 /* FM stereo demuxer
- * Copyright (c) 2017 OH2EIQ. MIT license. */
+ * windytan */
 #include "demux.h"
 
 #include <getopt.h>

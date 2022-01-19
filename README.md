@@ -16,10 +16,6 @@ Output: 16-bit stereo PCM at above rate
 
 Listening to stereo broadcasts with `rtl_fm` and SoX:
 
-    rtl_fm -M fm -l 0 -A std -p 0 -s 171k -g 40 -F 9 -f 90.0M | \
-      ./demux | \
-      play -q -t .s16 -r 171k -c 2 -
-
-## Copyright
-
-(c) OH2EIQ. MIT license.
+    rtl_fm -M fm -l 0 -A std -p 0 -s 192k -g 40 -F 9 -f 90.0M | \
+      ./demux -r 192000 | \
+      play -q -t .s16 -r 192k -c 2 -
