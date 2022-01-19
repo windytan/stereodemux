@@ -30,10 +30,6 @@ std::complex<float> FIRFilter::execute() {
   return result;
 }
 
-float FIRFilter::getGroupDelayAt(float f) {
-  return firfilt_crcf_groupdelay(object_, f);
-}
-
 FIRFilterR::FIRFilterR(int len, float fc, float As, float mu) {
   assert(fc >= 0.0f && fc <= 0.5f);
   assert(As > 0.0f);
@@ -55,10 +51,6 @@ float FIRFilterR::execute() {
   float result;
   firfilt_rrrf_execute(object_, &result);
   return result;
-}
-
-float FIRFilterR::getGroupDelayAt(float f) {
-  return firfilt_rrrf_groupdelay(object_, f);
 }
 
 NCO::NCO(float freq) : object_(nco_crcf_create(LIQUID_VCO)) {
@@ -112,23 +104,6 @@ float NCO::getPhase() {
 std::complex<float> NCO::getComplex() {
   std::complex<float> y;
   nco_crcf_cexpf(object_, &y);
-  return y;
-}
-
-WDelay::WDelay(int k) : object_(wdelayf_create(k)) {
-}
-
-WDelay::~WDelay() {
-  wdelayf_destroy(object_);
-}
-
-void WDelay::push(float x) {
-  wdelayf_push(object_, x);
-}
-
-float WDelay::read() {
-  float y;
-  wdelayf_read(object_, &y);
   return y;
 }
 

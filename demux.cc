@@ -77,8 +77,6 @@ int main(int argc, char **argv) {
   const int pilotFirHalfLength = srate * 1e-6f * 740.f;
   liquid::FIRFilter fir_pilot(pilotFirHalfLength * 2 + 1, kPilotFIRHalfbandHz / srate);
 
-  liquid::WDelay audio_delay(pilotFirHalfLength);
-
   liquid::FIRFilterR fir_l_plus_r (kAudioFIRLengthUsec * 1e-6f * srate, kAudioFIRCutoffHz / srate);
   liquid::FIRFilterR fir_l_minus_r(kAudioFIRLengthUsec * 1e-6f * srate, kAudioFIRCutoffHz / srate);
 
@@ -90,9 +88,6 @@ int main(int argc, char **argv) {
 
       // Maybe not needed?
       float insample = dccancel.run(inbuf[n]);
-
-      // Delay audio to match pilot filter delay
-      audio_delay.push(insample);
 
       // Pilot bandpass (mix-down + lowpass + mix-up)
       fir_pilot.push(nco_pilot_approx.mixDown(insample));
@@ -110,9 +105,8 @@ int main(int argc, char **argv) {
       nco_pilot_exact.step();
 
       // Decode stereo
-      float delayed = audio_delay.read();
-      fir_l_plus_r.push(delayed);
-      fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(delayed).imag());
+      fir_l_plus_r.push(insample);
+      fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(insample).imag());
       float l_plus_r  = fir_l_plus_r.execute();
       float l_minus_r = 2 * fir_l_minus_r.execute();
 

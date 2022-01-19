@@ -13,7 +13,6 @@ class FIRFilter {
   ~FIRFilter();
   void push(std::complex<float> s);
   std::complex<float> execute();
-  float getGroupDelayAt(float f);
 
  private:
   firfilt_crcf object_;
@@ -25,7 +24,6 @@ class FIRFilterR {
   ~FIRFilterR();
   void push(float s);
   float execute();
-  float getGroupDelayAt(float f);
 
  private:
   firfilt_rrrf object_;
@@ -49,17 +47,6 @@ class NCO {
 
  private:
   nco_crcf object_;
-};
-
-class WDelay {
- public:
-  WDelay(int k);
-  ~WDelay();
-  void push(float x);
-  float read();
-
- private:
-  wdelayf object_;
 };
 
 }  // namespace liquid
