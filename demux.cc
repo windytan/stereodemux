@@ -33,15 +33,11 @@ DeEmphasis::~DeEmphasis() {
   iirfilt_rrrf_destroy(iir_deemph_r);
 }
 
-float DCCancel::run(float in) {
+void RunningAverage::push(float in) {
   sum -= buffer[idx];
   buffer[idx] = in;
   sum += buffer[idx];
-  float dc_cancel = sum / kBuflen;
-
-  idx = (idx + 1) % kBuflen;
-
-  return in - dc_cancel;
+  idx = (idx + 1) % buffer.size();
 }
 
 int main(int argc, char **argv) {
@@ -55,15 +51,15 @@ int main(int argc, char **argv) {
         break;
       case '?':
         fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-        fprintf(stderr, "usage: stereo -r <rate>\n");
+        fprintf(stderr, "usage: demux [-r <rate>]\n");
         return EXIT_FAILURE;
       default:
         break;
     }
 
-  if (srate < 106000.0f) {
-    fprintf(stderr, "rate must be >= 106000\n");
-    exit(EXIT_FAILURE);
+  if (srate < kMinimumRate) {
+    fprintf(stderr, "rate must be >= %.0f Hz\n", double(kMinimumRate));
+    return EXIT_FAILURE;
   }
 
   int16_t inbuf[kBuflen];
@@ -81,13 +77,16 @@ int main(int argc, char **argv) {
   liquid::FIRFilterR fir_l_minus_r(kAudioFIRLengthUsec * 1e-6f * srate, kAudioFIRCutoffHz / srate);
 
   DeEmphasis deemphasis(srate);
-  DCCancel dccancel;
+  RunningAverage pilotnoise;
+
+  for (int i = 0; i < kBuflen; i++) {
+    pilotnoise.push(9.f);
+  }
 
   while (fread(&inbuf, sizeof(inbuf[0]), kBuflen, stdin)) {
     for (int n = 0; n < kBuflen; n++) {
 
-      // Maybe not needed?
-      float insample = dccancel.run(inbuf[n]);
+      float insample = inbuf[n];
 
       // Pilot bandpass (mix-down + lowpass + mix-up)
       fir_pilot.push(nco_pilot_approx.mixDown(insample));
@@ -104,11 +103,18 @@ int main(int argc, char **argv) {
       nco_pilot_exact.stepPLL(phase_error);
       nco_pilot_exact.step();
 
+      // Revert to mono if there is no pilot tone
+      if (n % 4 == 0)
+        pilotnoise.push(phase_error * phase_error);
+      float stereogain = 1.2f - pilotnoise.get();
+      if (stereogain < 0.f) stereogain = 0.f;
+      if (stereogain > 1.f) stereogain = 1.f;
+
       // Decode stereo
       fir_l_plus_r.push(insample);
       fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(insample).imag());
       float l_plus_r  = fir_l_plus_r.execute();
-      float l_minus_r = 2 * fir_l_minus_r.execute();
+      float l_minus_r = 2 * fir_l_minus_r.execute() * stereogain;
 
       float left  = (l_plus_r + l_minus_r);
       float right = (l_plus_r - l_minus_r);
@@ -117,6 +123,6 @@ int main(int argc, char **argv) {
     }
 
     if (!fwrite(&outbuf, sizeof(outbuf[0]), kBuflen, stdout))
-      return (EXIT_FAILURE);
+      return EXIT_FAILURE;
   }
 }
