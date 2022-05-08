@@ -81,20 +81,12 @@ void NCO::setPLLBandwidth(float bw) {
   nco_crcf_pll_set_bandwidth(object_, bw);
 }
 
-void NCO::setFrequency(float f) {
-  nco_crcf_set_frequency(object_, f);
-}
-
 void NCO::setPhase(float ph) {
   nco_crcf_set_phase(object_, ph);
 }
 
 void NCO::stepPLL(float dphi) {
   nco_crcf_pll_step(object_, dphi);
-}
-
-float NCO::getFrequency() {
-  return nco_crcf_get_frequency(object_);
 }
 
 float NCO::getPhase() {

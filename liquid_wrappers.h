@@ -38,10 +38,8 @@ class NCO {
   std::complex<float> mixUp(std::complex<float> s);
   void step();
   void setPLLBandwidth(float);
-  void setFrequency(float);
   void setPhase(float);
   void stepPLL(float dphi);
-  float getFrequency();
   float getPhase();
   std::complex<float> getComplex();
 

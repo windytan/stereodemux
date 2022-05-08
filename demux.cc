@@ -9,10 +9,19 @@
 #include <complex>
 
 #include "liquid_wrappers.h"
+#include "options.h"
 
-DeEmphasis::DeEmphasis(float srate) {
+// Hertz to radians per sample
+float angularFreq(float hertz, float srate) {
+  return hertz * 2.f * float(M_PI) / srate;
+}
+
+DeEmphasis::DeEmphasis(float time_constant_us, float srate) {
+  // https://lehrer.bulme.at/~tr/SDR/PRE_DE_EMPHASIS_web.html
+  float cutoff = float(1.0 / (2.0 * double(M_PI) * double(time_constant_us) * 1e-6)) / srate;
+
   liquid_iirdes(LIQUID_IIRDES_BUTTER, LIQUID_IIRDES_LOWPASS, LIQUID_IIRDES_SOS,
-      kDeEmphasisOrder, kDeEmphasisCutoffHz / srate, 0.0f, 10.0f, 10.0f,
+      kDeEmphasisOrder, cutoff, 0.0f, 10.0f, 10.0f,
       deemph_coeff_B, deemph_coeff_A);
   iir_deemph_l = iirfilt_rrrf_create_sos(deemph_coeff_B,
       deemph_coeff_A, len + odd);
@@ -41,42 +50,36 @@ void RunningAverage::push(float in) {
 }
 
 int main(int argc, char **argv) {
-  float srate = kDefaultRate;
+  Options options = getOptions(argc, argv);
 
-  int c;
-  while ((c = getopt(argc, argv, "r:")) != -1)
-    switch (c) {
-      case 'r':
-        srate = atof(optarg);
-        break;
-      case '?':
-        fprintf(stderr, "Unknown option `-%c'.\n", optopt);
-        fprintf(stderr, "usage: demux [-r <rate>]\n");
-        return EXIT_FAILURE;
-      default:
-        break;
-    }
+  if (options.print_usage) {
+    fprintf(stderr, "usage: demux -r <samplerate> [-d <time_constant_μs>]\n");
+  }
 
-  if (srate < kMinimumRate) {
-    fprintf(stderr, "rate must be >= %.0f Hz\n", double(kMinimumRate));
+  if (options.exit_failure) {
+    return EXIT_FAILURE;
+  }
+
+  if (options.samplerate < kMinimumSampleRate) {
+    fprintf(stderr, "samplerate must be >= %.0f Hz\n", double(kMinimumSampleRate));
     return EXIT_FAILURE;
   }
 
   int16_t inbuf[kBuflen];
   StereoSample outbuf[kBuflen];
 
-  liquid::NCO nco_pilot_approx(kPilotHz * 2.f * float(M_PI) / srate);
-  liquid::NCO nco_pilot_exact(kPilotHz * 2.f * float(M_PI) / srate);
-  nco_pilot_exact.setPLLBandwidth(kPLLBandwidthHz / srate);
-  liquid::NCO nco_stereo_subcarrier(2.f * kPilotHz * 2.f * float(M_PI) / srate);
+  liquid::NCO nco_pilot_approx(angularFreq(kPilotHz, options.samplerate));
+  liquid::NCO nco_pilot_exact(angularFreq(kPilotHz, options.samplerate));
+  nco_pilot_exact.setPLLBandwidth(kPLLBandwidthHz / options.samplerate);
+  liquid::NCO nco_stereo_subcarrier(2.f * angularFreq(kPilotHz, options.samplerate));
 
-  const int pilotFirHalfLength = srate * 1e-6f * 740.f;
-  liquid::FIRFilter fir_pilot(pilotFirHalfLength * 2 + 1, kPilotFIRHalfbandHz / srate);
+  const int pilotFirHalfLength = options.samplerate * 1e-6f * 740.f;
+  liquid::FIRFilter fir_pilot(pilotFirHalfLength * 2 + 1, kPilotFIRHalfbandHz / options.samplerate);
 
-  liquid::FIRFilterR fir_l_plus_r (kAudioFIRLengthUsec * 1e-6f * srate, kAudioFIRCutoffHz / srate);
-  liquid::FIRFilterR fir_l_minus_r(kAudioFIRLengthUsec * 1e-6f * srate, kAudioFIRCutoffHz / srate);
+  liquid::FIRFilterR fir_l_plus_r (kAudioFIRLengthUsec * 1e-6f * options.samplerate, kAudioFIRCutoffHz / options.samplerate);
+  liquid::FIRFilterR fir_l_minus_r(kAudioFIRLengthUsec * 1e-6f * options.samplerate, kAudioFIRCutoffHz / options.samplerate);
 
-  DeEmphasis deemphasis(srate);
+  DeEmphasis deemphasis(options.time_constant_us, options.samplerate);
   RunningAverage pilotnoise;
 
   for (int i = 0; i < kBuflen; i++) {
@@ -125,4 +128,6 @@ int main(int argc, char **argv) {
     if (!fwrite(&outbuf, sizeof(outbuf[0]), kBuflen, stdout))
       return EXIT_FAILURE;
   }
+
+  return EXIT_SUCCESS;
 }

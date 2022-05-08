@@ -5,15 +5,13 @@
 #include "liquid_wrappers.h"
 
 constexpr int   kBuflen             = 8192;
-constexpr float kDefaultRate        = 171000.0f;
-constexpr float kMinimumRate        = 106000.0f;
+constexpr float kMinimumSampleRate  = 106000.0f;
 constexpr float kPilotHz            = 19000.0f;
 constexpr float kPLLBandwidthHz     = 9.0f;
 constexpr float kPilotFIRHalfbandHz = 800.0f;
-constexpr float kAudioFIRCutoffHz   = 15000.0f;
+constexpr float kAudioFIRCutoffHz   = 16500.0f;
 constexpr float kAudioFIRLengthUsec = 740.f;
-constexpr int   kDeEmphasisOrder    = 2;
-constexpr float kDeEmphasisCutoffHz = 5000.0f;
+constexpr int   kDeEmphasisOrder    = 1;
 
 struct StereoSampleF {
   float l;
@@ -32,13 +30,13 @@ struct StereoSample {
 
 class DeEmphasis {
  public:
-  DeEmphasis(float srate);
+  DeEmphasis(float time_constant_us, float srate);
   ~DeEmphasis();
   StereoSampleF run(StereoSampleF in);
 
  private:
-  static const int odd = kDeEmphasisOrder % 2;         // odd/even order
-  static const int len = (kDeEmphasisOrder - odd) / 2; // filter semi-length
+  static constexpr int odd = kDeEmphasisOrder % 2;         // odd/even order
+  static constexpr int len = (kDeEmphasisOrder - odd) / 2; // filter semi-length
 
   float deemph_coeff_B[3*(len + odd)];
   float deemph_coeff_A[3*(len + odd)];
