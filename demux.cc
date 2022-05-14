@@ -16,6 +16,10 @@ float angularFreq(float hertz, float srate) {
   return hertz * 2.f * float(M_PI) / srate;
 }
 
+float dB_to_ratio(float dB) {
+  return std::pow(10.f, dB / 20.f);
+}
+
 DeEmphasis::DeEmphasis(float time_constant_us, float srate) {
   // https://lehrer.bulme.at/~tr/SDR/PRE_DE_EMPHASIS_web.html
   float cutoff = float(1.0 / (2.0 * double(M_PI) * double(time_constant_us) * 1e-6)) / srate;
@@ -50,7 +54,7 @@ void RunningAverage::push(float in) {
 }
 
 int main(int argc, char **argv) {
-  Options options = getOptions(argc, argv);
+  const Options options = getOptions(argc, argv);
 
   if (options.print_usage) {
     fprintf(stderr, "usage: demux -r <samplerate> [-d <time_constant_μs>]\n");
@@ -65,8 +69,19 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
+  const float resample_ratio = options.output_rate / options.samplerate;
+  const bool do_resample     = resample_ratio != 1.f;
+
+  if (resample_ratio > 1.f) {
+    fprintf(stderr, "output rate must be <= input rate");
+    return EXIT_FAILURE;
+  };
+
   int16_t inbuf[kBuflen];
   StereoSample outbuf[kBuflen];
+  StereoSample resampled_buffer[kBuflen];
+
+  const float gain = dB_to_ratio(options.gain_db);
 
   liquid::NCO nco_pilot_approx(angularFreq(kPilotHz, options.samplerate));
   liquid::NCO nco_pilot_exact(angularFreq(kPilotHz, options.samplerate));
@@ -82,14 +97,17 @@ int main(int argc, char **argv) {
   DeEmphasis deemphasis(options.time_constant_us, options.samplerate);
   RunningAverage pilotnoise;
 
+  liquid::Resampler resampler(resample_ratio, 13);
+
   for (int i = 0; i < kBuflen; i++) {
     pilotnoise.push(9.f);
   }
 
   while (fread(&inbuf, sizeof(inbuf[0]), kBuflen, stdin)) {
-    for (int n = 0; n < kBuflen; n++) {
+    unsigned int i_resampled = 0;
 
-      float insample = inbuf[n];
+    for (int n = 0; n < kBuflen; n++) {
+      const float insample = inbuf[n];
 
       // Pilot bandpass (mix-down + lowpass + mix-up)
       fir_pilot.push(nco_pilot_approx.mixDown(insample));
@@ -103,7 +121,8 @@ int main(int argc, char **argv) {
       // Pilot PLL
       float phase_error =
           std::arg(pilot * std::conj(nco_pilot_exact.getComplex()));
-      nco_pilot_exact.stepPLL(phase_error);
+      if (n % 4 == 0)
+        nco_pilot_exact.stepPLL(phase_error);
       nco_pilot_exact.step();
 
       // Revert to mono if there is no pilot tone
@@ -113,20 +132,37 @@ int main(int argc, char **argv) {
       if (stereogain < 0.f) stereogain = 0.f;
       if (stereogain > 1.f) stereogain = 1.f;
 
-      // Decode stereo
+      // Decode stereo & anti-alias
       fir_l_plus_r.push(insample);
       fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(insample).imag());
       float l_plus_r  = fir_l_plus_r.execute();
       float l_minus_r = 2 * fir_l_minus_r.execute() * stereogain;
 
-      float left  = (l_plus_r + l_minus_r);
-      float right = (l_plus_r - l_minus_r);
+      float left  = (l_plus_r + l_minus_r) * gain;
+      float right = (l_plus_r - l_minus_r) * gain;
 
-      outbuf[n] = deemphasis.run({left, right});
+      StereoSampleF stereo = deemphasis.run({left, right});
+
+      if (do_resample) {
+        static std::complex<float> out[1];
+
+        if (resampler.execute(std::complex<float>(stereo.l, stereo.r), out)) {
+          resampled_buffer[i_resampled].l = out[0].real();
+          resampled_buffer[i_resampled].r = out[0].imag();
+          i_resampled++;
+        }
+      } else {
+        outbuf[n] = stereo;
+      }
     }
 
-    if (!fwrite(&outbuf, sizeof(outbuf[0]), kBuflen, stdout))
-      return EXIT_FAILURE;
+    if (do_resample) {
+      if (!fwrite(&resampled_buffer, sizeof(resampled_buffer[0]), i_resampled, stdout))
+        return EXIT_FAILURE;
+    } else {
+      if (!fwrite(&outbuf, sizeof(outbuf[0]), kBuflen, stdout))
+        return EXIT_FAILURE;
+    }
   }
 
   return EXIT_SUCCESS;

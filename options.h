@@ -2,7 +2,9 @@
 
 struct Options {
   float samplerate       { 0.f };
+  float output_rate      { 0.f };
   float time_constant_us { 50.f };
+  float gain_db          { 0.f };
   bool  exit_failure     { false };
   bool  print_usage      { false };
 };

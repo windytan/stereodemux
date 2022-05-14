@@ -7,12 +7,8 @@
 
 namespace liquid {
 
-FIRFilter::FIRFilter(int len, float fc, float As, float mu) {
-  assert(fc >= 0.0f && fc <= 0.5f);
-  assert(As > 0.0f);
-  assert(mu >= -0.5f && mu <= 0.5f);
-
-  object_ = firfilt_crcf_create_kaiser(len, fc, As, mu);
+FIRFilter::FIRFilter(int len, float fc, float As, float mu) :
+    object_(firfilt_crcf_create_kaiser(len, fc, As, mu)) {
   firfilt_crcf_set_scale(object_, 2.0f * fc);
 }
 
@@ -30,12 +26,8 @@ std::complex<float> FIRFilter::execute() {
   return result;
 }
 
-FIRFilterR::FIRFilterR(int len, float fc, float As, float mu) {
-  assert(fc >= 0.0f && fc <= 0.5f);
-  assert(As > 0.0f);
-  assert(mu >= -0.5f && mu <= 0.5f);
-
-  object_ = firfilt_rrrf_create_kaiser(len, fc, As, mu);
+FIRFilterR::FIRFilterR(int len, float fc, float As, float mu) :
+    object_(firfilt_rrrf_create_kaiser(len, fc, As, mu)) {
   firfilt_rrrf_set_scale(object_, 2.0f * fc);
 }
 
@@ -97,6 +89,21 @@ std::complex<float> NCO::getComplex() {
   std::complex<float> y;
   nco_crcf_cexpf(object_, &y);
   return y;
+}
+
+Resampler::Resampler(float ratio, unsigned int length) :
+    object_(resamp_crcf_create(ratio, length, 0.47f, 60.0f, 32)) {
+}
+
+Resampler::~Resampler() {
+  resamp_crcf_destroy(object_);
+}
+
+unsigned int Resampler::execute(std::complex<float> in, std::complex<float>* out) {
+  unsigned int num_written;
+  resamp_crcf_execute(object_, in, out, &num_written);
+
+  return num_written;
 }
 
 }  // namespace liquid

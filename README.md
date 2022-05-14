@@ -14,12 +14,14 @@ It expects 16-bit signed-integer MPX (FM demodulated mono PCM) via stdin and out
 
 ## Usage
 
-    This program should be used via UNIX pipes:
+This program should be used via UNIX pipes:
 
-    ./demux -r <samplerate> [-d time_constant_μs]
+    ./demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db]
 
-    -r   Sample rate in Hertz.
-    -d   Time constant of the de-emphasis filter in microseconds.
+    -r   Input sample rate (Hz).
+    -R   Output sample rate (Hz). If unspecified the input rate will be used.
+    -g   Additional output gain (dB).
+    -d   Time constant of the de-emphasis filter (microseconds).
          Meaningful values are 75 for the Americas and South Korea and
          50 elsewhere; the default is 50.
 

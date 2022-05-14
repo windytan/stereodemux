@@ -4,13 +4,13 @@
 
 #include "liquid_wrappers.h"
 
-constexpr int   kBuflen             = 8192;
+constexpr int   kBuflen             = 8192;       // I/O buffer length
 constexpr float kMinimumSampleRate  = 106000.0f;
 constexpr float kPilotHz            = 19000.0f;
 constexpr float kPLLBandwidthHz     = 9.0f;
 constexpr float kPilotFIRHalfbandHz = 800.0f;
 constexpr float kAudioFIRCutoffHz   = 16500.0f;
-constexpr float kAudioFIRLengthUsec = 740.f;
+constexpr float kAudioFIRLengthUsec = 740.f;      // Longer filter = better antialiasing
 constexpr int   kDeEmphasisOrder    = 1;
 
 struct StereoSampleF {

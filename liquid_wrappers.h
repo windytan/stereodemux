@@ -29,7 +29,6 @@ class FIRFilterR {
   firfilt_rrrf object_;
 };
 
-
 class NCO {
  public:
   NCO(float freq);
@@ -45,6 +44,17 @@ class NCO {
 
  private:
   nco_crcf object_;
+};
+
+class Resampler {
+ public:
+  explicit Resampler(float ratio, unsigned int length);
+  Resampler(const Resampler&) = delete;
+  ~Resampler();
+  unsigned int execute(std::complex<float> in, std::complex<float>* out);
+
+ private:
+  resamp_crcf object_;
 };
 
 }  // namespace liquid

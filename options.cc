@@ -29,14 +29,20 @@ Options getOptions(int argc, char** argv) {
   bool is_rate_set { false };
 
   int c;
-  while ((c = getopt(argc, argv, "r:d:")) != -1) {
+  while ((c = getopt(argc, argv, "r:R:d:g:")) != -1) {
     switch (c) {
       case 'r':
         options.samplerate = decodeSIprefix(optarg);
         is_rate_set = true;
         break;
+      case 'R':
+        options.output_rate = decodeSIprefix(optarg);
+        break;
       case 'd':
         options.time_constant_us = std::atof(optarg);
+        break;
+      case 'g':
+        options.gain_db = std::atof(optarg);
         break;
       case '?':
         fprintf(stderr, "Unknown option `-%c'.\n", optopt);
@@ -51,6 +57,10 @@ Options getOptions(int argc, char** argv) {
   if (not is_rate_set) {
     options.print_usage  = true;
     options.exit_failure = true;
+  }
+
+  if (options.output_rate == 0.f) {
+    options.output_rate = options.samplerate;
   }
 
   return options;
