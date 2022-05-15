@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
   const Options options = getOptions(argc, argv);
 
   if (options.print_usage) {
-    fprintf(stderr, "usage: demux -r <samplerate> [-d <time_constant_μs>]\n");
+    fprintf(stderr, "usage: demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db]\n");
   }
 
   if (options.exit_failure) {
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   }
 
   if (options.samplerate < kMinimumSampleRate) {
-    fprintf(stderr, "samplerate must be >= %.0f Hz\n", double(kMinimumSampleRate));
+    fprintf(stderr, "input samplerate must be >= %.0f Hz\n", double(kMinimumSampleRate));
     return EXIT_FAILURE;
   }
 
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
   const bool do_resample     = resample_ratio != 1.f;
 
   if (resample_ratio > 1.f) {
-    fprintf(stderr, "output rate must be <= input rate");
+    fprintf(stderr, "output samplerate must be <= input rate");
     return EXIT_FAILURE;
   };
 

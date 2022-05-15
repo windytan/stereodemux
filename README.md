@@ -19,8 +19,8 @@ This program should be used via UNIX pipes:
     ./demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db]
 
     -r   Input sample rate (Hz).
-    -R   Output sample rate (Hz). If unspecified the input rate will be used.
-    -g   Additional output gain (dB).
+    -R   Output sample rate (Hz). The default is to use the input rate.
+    -g   Additional output gain (dB). Beware of clipping.
     -d   Time constant of the de-emphasis filter (microseconds).
          Meaningful values are 75 for the Americas and South Korea and
          50 elsewhere; the default is 50.
@@ -33,14 +33,14 @@ Listen to stereo broadcasts with `rtl_fm` and `sox`:
       ./demux -r 192k | \
       play -q -t .s16 -r 192k -c 2 -
 
-Listen with `aplay`:
+Listen with `aplay`, resampling happens inside demux:
 
     rtl_fm -M fm -l 0 -A std -p 0 -s 192k -g 40 -F 9 -f 90.0M | \
-      ./demux -r 192k | \
-      aplay -f S16_LE -c 2 -r 192000
+      ./demux -r 192k -R 44.1k | \
+      aplay -f S16_LE -c 2 -r 44100
 
 Convert a 192 kHz MPX WAV into a 44.1 kHz stereo WAV:
 
     sox mpx.wav -t .s16 - | \
-      ./demux -r 192k | \
-      sox -t .s16 -r 192k -c 2 - -r 44100 stereo.wav
+      ./demux -r 192k -R 44.1k | \
+      sox -t .s16 -r 44.1k -c 2 - stereo.wav
