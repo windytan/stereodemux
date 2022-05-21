@@ -19,8 +19,12 @@ This program should be used via UNIX pipes:
     ./demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db]
 
     -r   Input sample rate (Hz).
+
     -R   Output sample rate (Hz). The default is to use the input rate.
-    -g   Additional output gain (dB). Beware of clipping.
+
+    -g   Additional output gain (dB). Beware of clipping. 6 dB means doubled amplitude;
+         or you could give an amplitude ratio instead by adding an 'x'.
+
     -d   Time constant of the de-emphasis filter (microseconds).
          Meaningful values are 75 for the Americas and South Korea and
          50 elsewhere; the default is 50.
@@ -33,7 +37,7 @@ Listen to stereo broadcasts with `rtl_fm` and `sox`:
       ./demux -r 192k | \
       play -q -t .s16 -r 192k -c 2 -
 
-Listen with `aplay`, resampling happens inside demux:
+Listen with `aplay`, resampling inside demux:
 
     rtl_fm -M fm -l 0 -A std -p 0 -s 192k -g 40 -F 9 -f 90.0M | \
       ./demux -r 192k -R 44.1k | \

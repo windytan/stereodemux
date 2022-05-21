@@ -24,6 +24,21 @@ float decodeSIprefix (const char* arg) {
   return float(std::atof(arg) * factor);
 }
 
+float dB_to_ratio(float dB) {
+  return pow(10.f, dB / 20.f);
+}
+
+float decodeGain (const char* arg) {
+  std::string str(arg);
+  float factor;
+  if (str.size() > 1 && tolower(str.back()) == 'x') {
+    factor = std::atof(arg);
+  } else {
+    factor = dB_to_ratio(std::atof(arg));
+  }
+  return factor;
+}
+
 Options getOptions(int argc, char** argv) {
   Options options{};
   bool is_rate_set { false };
@@ -42,7 +57,7 @@ Options getOptions(int argc, char** argv) {
         options.time_constant_us = std::atof(optarg);
         break;
       case 'g':
-        options.gain_db = std::atof(optarg);
+        options.gain = decodeGain(optarg);
         break;
       case '?':
         fprintf(stderr, "Unknown option `-%c'.\n", optopt);

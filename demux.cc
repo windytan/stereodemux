@@ -16,10 +16,6 @@ float angularFreq(float hertz, float srate) {
   return hertz * 2.f * float(M_PI) / srate;
 }
 
-float dB_to_ratio(float dB) {
-  return std::pow(10.f, dB / 20.f);
-}
-
 DeEmphasis::DeEmphasis(float time_constant_us, float srate) {
   // https://lehrer.bulme.at/~tr/SDR/PRE_DE_EMPHASIS_web.html
   float cutoff = float(1.0 / (2.0 * double(M_PI) * double(time_constant_us) * 1e-6)) / srate;
@@ -81,7 +77,7 @@ int main(int argc, char **argv) {
   StereoSample outbuf[kBuflen];
   StereoSample resampled_buffer[kBuflen];
 
-  const float gain = dB_to_ratio(options.gain_db);
+  const float gain = options.gain;
 
   liquid::NCO nco_pilot_approx(angularFreq(kPilotHz, options.samplerate));
   liquid::NCO nco_pilot_exact(angularFreq(kPilotHz, options.samplerate));
