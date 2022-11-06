@@ -1,7 +1,8 @@
 #include "options.h"
 
-#include <getopt.h>
+#include <cmath>
 #include <cstdlib>
+#include <getopt.h>
 #include <iostream>
 #include <string>
 
@@ -25,7 +26,7 @@ float decodeSIprefix (const char* arg) {
 }
 
 float dB_to_ratio(float dB) {
-  return pow(10.f, dB / 20.f);
+  return std::pow(10.f, dB / 20.f);
 }
 
 float decodeGain (const char* arg) {
