@@ -8,19 +8,21 @@ constexpr int   kBuflen             = 8192;       // I/O buffer length
 constexpr float kMinimumSampleRate  = 106000.0f;
 constexpr float kPilotHz            = 19000.0f;
 constexpr float kPLLBandwidthHz     = 9.0f;
+constexpr float kPilotFIRUsec       = 740.f;
 constexpr float kPilotFIRHalfbandHz = 800.0f;
 constexpr float kAudioFIRCutoffHz   = 16500.0f;
 constexpr float kAudioFIRLengthUsec = 740.f;      // Longer filter = better antialiasing
 constexpr int   kDeEmphasisOrder    = 1;
+constexpr float kStereoSeparation   = 1.2f;
 
-struct StereoSampleF {
+struct StereoSampleF32 {
   float l;
   float r;
 };
 
-struct StereoSample {
-  StereoSample() = default;
-  StereoSample(StereoSampleF samplef) {
+struct StereoSampleS16 {
+  StereoSampleS16() = default;
+  StereoSampleS16(StereoSampleF32 samplef) {
     l = samplef.l;
     r = samplef.r;
   }
@@ -32,7 +34,7 @@ class DeEmphasis {
  public:
   DeEmphasis(float time_constant_us, float srate);
   ~DeEmphasis();
-  StereoSampleF run(StereoSampleF in);
+  StereoSampleF32 run(StereoSampleF32 in);
 
  private:
   static constexpr int odd = kDeEmphasisOrder % 2;         // odd/even order

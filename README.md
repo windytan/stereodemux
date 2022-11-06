@@ -14,13 +14,14 @@ It expects 16-bit signed-integer MPX (FM demodulated mono PCM) via stdin and out
 
 ## Usage
 
-This program should be used via UNIX pipes:
+This program reads and writes S16_LE samples via standard streams: single-channel input, stereo output.
 
     ./demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db]
 
     -r   Input sample rate (Hz).
 
-    -R   Output sample rate (Hz). The default is to use the input rate.
+    -R   Output sample rate (Hz). Must be less than or equal to the input sample rate.
+         The default is to use the input rate.
 
     -g   Additional output gain (dB). Beware of clipping. 6 dB means doubled amplitude;
          or you could give an amplitude ratio instead by adding an 'x'.
@@ -31,7 +32,7 @@ This program should be used via UNIX pipes:
 
 ## Examples
 
-Listen to stereo broadcasts with `rtl_fm` and `sox`:
+Listen to a stereo broadcast on 90.0 MHz with `rtl_fm` and `sox`:
 
     rtl_fm -M fm -l 0 -A std -p 0 -s 192k -g 40 -F 9 -f 90.0M | \
       ./demux -r 192k | \

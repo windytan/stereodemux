@@ -12,13 +12,13 @@
 #include "options.h"
 
 // Hertz to radians per sample
-float angularFreq(float hertz, float srate) {
-  return hertz * 2.f * float(M_PI) / srate;
+float angularFreq(float hertz, float samplerate) {
+  return hertz * 2.f * float(M_PI) / samplerate;
 }
 
-DeEmphasis::DeEmphasis(float time_constant_us, float srate) {
+DeEmphasis::DeEmphasis(float time_constant_us, float samplerate) {
   // https://lehrer.bulme.at/~tr/SDR/PRE_DE_EMPHASIS_web.html
-  float cutoff = float(1.0 / (2.0 * double(M_PI) * double(time_constant_us) * 1e-6)) / srate;
+  float cutoff = float(1.0 / (2.0 * double(M_PI) * double(time_constant_us) * 1e-6)) / samplerate;
 
   liquid_iirdes(LIQUID_IIRDES_BUTTER, LIQUID_IIRDES_LOWPASS, LIQUID_IIRDES_SOS,
       kDeEmphasisOrder, cutoff, 0.0f, 10.0f, 10.0f,
@@ -29,8 +29,8 @@ DeEmphasis::DeEmphasis(float time_constant_us, float srate) {
       deemph_coeff_A, len + odd);
 }
 
-StereoSampleF DeEmphasis::run(StereoSampleF in) {
-  StereoSampleF out;
+StereoSampleF32 DeEmphasis::run(StereoSampleF32 in) {
+  StereoSampleF32 out;
   iirfilt_rrrf_execute(iir_deemph_l, in.l, &out.l);
   iirfilt_rrrf_execute(iir_deemph_r, in.r, &out.r);
 
@@ -74,8 +74,8 @@ int main(int argc, char **argv) {
   };
 
   int16_t inbuf[kBuflen];
-  StereoSample outbuf[kBuflen];
-  StereoSample resampled_buffer[kBuflen];
+  StereoSampleS16 outbuf[kBuflen];
+  StereoSampleS16 resampled_outbuf[kBuflen];
 
   const float gain = options.gain;
 
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
   nco_pilot_exact.setPLLBandwidth(kPLLBandwidthHz / options.samplerate);
   liquid::NCO nco_stereo_subcarrier(2.f * angularFreq(kPilotHz, options.samplerate));
 
-  const int pilotFirHalfLength = options.samplerate * 1e-6f * 740.f;
+  const int pilotFirHalfLength = options.samplerate * 1e-6f * kPilotFIRUsec;
   liquid::FIRFilter fir_pilot(pilotFirHalfLength * 2 + 1, kPilotFIRHalfbandHz / options.samplerate);
 
   liquid::FIRFilterR fir_l_plus_r (kAudioFIRLengthUsec * 1e-6f * options.samplerate, kAudioFIRCutoffHz / options.samplerate);
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
       // Revert to mono if there is no pilot tone
       if (n % 4 == 0)
         pilotnoise.push(phase_error * phase_error);
-      float stereogain = 1.2f - pilotnoise.get();
+      float stereogain = kStereoSeparation - pilotnoise.get();
       if (stereogain < 0.f) stereogain = 0.f;
       if (stereogain > 1.f) stereogain = 1.f;
 
@@ -137,14 +137,14 @@ int main(int argc, char **argv) {
       float left  = (l_plus_r + l_minus_r) * gain;
       float right = (l_plus_r - l_minus_r) * gain;
 
-      StereoSampleF stereo = deemphasis.run({left, right});
+      StereoSampleF32 stereo = deemphasis.run({left, right});
 
       if (do_resample) {
         static std::complex<float> out[1];
 
         if (resampler.execute(std::complex<float>(stereo.l, stereo.r), out)) {
-          resampled_buffer[i_resampled].l = out[0].real();
-          resampled_buffer[i_resampled].r = out[0].imag();
+          resampled_outbuf[i_resampled].l = out[0].real();
+          resampled_outbuf[i_resampled].r = out[0].imag();
           i_resampled++;
         }
       } else {
@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
     }
 
     if (do_resample) {
-      if (!fwrite(&resampled_buffer, sizeof(resampled_buffer[0]), i_resampled, stdout))
+      if (!fwrite(&resampled_outbuf, sizeof(resampled_outbuf[0]), i_resampled, stdout))
         return EXIT_FAILURE;
     } else {
       if (!fwrite(&outbuf, sizeof(outbuf[0]), kBuflen, stdout))
