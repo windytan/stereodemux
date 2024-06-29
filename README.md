@@ -10,7 +10,13 @@ It expects 16-bit signed-integer MPX (FM demodulated mono PCM) via stdin and out
 
 ## Compiling
 
+We have a Makefile for reasons of tradition (you may have to configure include paths yourself):
+
     make
+
+We also have a more modern and automated route, using [meson](https://mesonbuild.com/):
+
+    meson setup build && cd build && meson compile
 
 ## Usage
 

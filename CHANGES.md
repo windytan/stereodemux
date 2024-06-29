@@ -1,3 +1,11 @@
+v1.0 (6/2024)
+=============
+- fix a bug that silenced the output if -g wasn't specified
+- add the possibility to build using meson
+- add tests and build check pipeline
+- refactor the code a bit
+- include cmath in options.cc
+
 v0.3 (5/2022)
 =============
 - sample rate is a mandatory argument
