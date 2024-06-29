@@ -3,12 +3,19 @@
 #include <cassert>
 #include <complex>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+// https://github.com/jgaeddert/liquid-dsp/issues/229
+#pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
+extern "C" {
 #include "liquid/liquid.h"
+}
+#pragma clang diagnostic pop
 
 namespace liquid {
 
-FIRFilter::FIRFilter(int len, float fc, float As, float mu) :
-    object_(firfilt_crcf_create_kaiser(len, fc, As, mu)) {
+FIRFilter::FIRFilter(int len, float fc, float As, float mu)
+    : object_(firfilt_crcf_create_kaiser(len, fc, As, mu)) {
   firfilt_crcf_set_scale(object_, 2.0f * fc);
 }
 
@@ -26,8 +33,8 @@ std::complex<float> FIRFilter::execute() {
   return result;
 }
 
-FIRFilterR::FIRFilterR(int len, float fc, float As, float mu) :
-    object_(firfilt_rrrf_create_kaiser(len, fc, As, mu)) {
+FIRFilterR::FIRFilterR(int len, float fc, float As, float mu)
+    : object_(firfilt_rrrf_create_kaiser(len, fc, As, mu)) {
   firfilt_rrrf_set_scale(object_, 2.0f * fc);
 }
 
@@ -91,9 +98,8 @@ std::complex<float> NCO::getComplex() {
   return y;
 }
 
-Resampler::Resampler(float ratio, unsigned int length) :
-    object_(resamp_crcf_create(ratio, length, 0.47f, 60.0f, 32)) {
-}
+Resampler::Resampler(float ratio, unsigned int length)
+    : object_(resamp_crcf_create(ratio, length, 0.47f, 60.0f, 32)) {}
 
 Resampler::~Resampler() {
   resamp_crcf_destroy(object_);

@@ -1,25 +1,19 @@
 #include "options.h"
 
+#include <getopt.h>
 #include <cmath>
 #include <cstdlib>
-#include <getopt.h>
 #include <iostream>
 #include <string>
 
-float decodeSIprefix (const char* arg) {
+float decodeSIprefix(const char* arg) {
   std::string str(arg);
-  double factor = 1.0;
+  double      factor = 1.0;
   if (str.size() > 1) {
     switch (tolower(str.back())) {
-      case 'k':
-        factor = 1e3;
-        break;
-      case 'M':
-        factor = 1e6;
-        break;
-      default:
-        factor = 1.0;
-        break;
+      case 'k': factor = 1e3; break;
+      case 'M': factor = 1e6; break;
+      default:  factor = 1.0; break;
     }
   }
   return float(std::atof(arg) * factor);
@@ -29,9 +23,9 @@ float dB_to_ratio(float dB) {
   return std::pow(10.f, dB / 20.f);
 }
 
-float decodeGain (const char* arg) {
+float decodeGain(const char* arg) {
   std::string str(arg);
-  float factor;
+  float       factor;
   if (str.size() > 1 && tolower(str.back()) == 'x') {
     factor = std::atof(arg);
   } else {
@@ -42,31 +36,24 @@ float decodeGain (const char* arg) {
 
 Options getOptions(int argc, char** argv) {
   Options options{};
-  bool is_rate_set { false };
+  bool    is_rate_set{false};
 
   int c;
   while ((c = getopt(argc, argv, "r:R:d:g:")) != -1) {
     switch (c) {
       case 'r':
         options.samplerate = decodeSIprefix(optarg);
-        is_rate_set = true;
+        is_rate_set        = true;
         break;
-      case 'R':
-        options.output_rate = decodeSIprefix(optarg);
-        break;
-      case 'd':
-        options.time_constant_us = std::atof(optarg);
-        break;
-      case 'g':
-        options.gain = decodeGain(optarg);
-        break;
+      case 'R': options.output_rate = decodeSIprefix(optarg); break;
+      case 'd': options.time_constant_us = std::atof(optarg); break;
+      case 'g': options.gain = decodeGain(optarg); break;
       case '?':
         fprintf(stderr, "Unknown option `-%c'.\n", optopt);
         options.print_usage  = true;
         options.exit_failure = true;
         break;
-      default:
-        break;
+      default: break;
     }
   }
 
