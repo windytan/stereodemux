@@ -1,6 +1,7 @@
 # stereodemux
 
 This command-line tool converts an FM broadcast signal into stereo sound with de-emphasis applied.
+It is [tested](https://github.com/windytan/stereodemux/blob/master/test/test.pl) against Stereo Tool.
 
 It expects 16-bit signed-integer MPX (FM demodulated mono PCM) via stdin and outputs stereo PCM to stdout.
 
@@ -17,6 +18,8 @@ We have a Makefile for reasons of tradition (you may have to configure include p
 We also have a more modern and automated route, using [meson](https://mesonbuild.com/):
 
     meson setup build && cd build && meson compile
+
+You can choose either or; none is better than the other.
 
 ## Usage
 
