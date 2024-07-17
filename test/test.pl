@@ -193,7 +193,7 @@ sub CheckSeparationRightSide {
   my $result = $diff > 0;
   check( $result,
         "pan     params[right Fs=$fs Hz, $deemph μs]  result["
-      . @sides[ $diff < 0 ]
+      . @sides[ $diff > 0 ]
       . "]  expected[right]" );
 
   $result = -abs($diff) < $max_stereo_crosstalk_db;
