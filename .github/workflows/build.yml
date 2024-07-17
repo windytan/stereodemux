@@ -13,7 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies (apt)
-      run: sudo apt install python3-pip ninja-build libliquid-dev meson build-essential
+      run: sudo apt install ninja-build libliquid-dev meson
     - name: compile (meson)
       run: meson setup -Dwerror=true build && cd build && meson compile
     - name: compile (makefile)
@@ -28,7 +28,7 @@ jobs:
     - name: Install dependencies (apt-get)
       run: apt-get update && apt-get -y install build-essential libliquid-dev
     - name: compile (makefile)
-      run: make
+      run: make EXTRA_CFLAGS="-Werror"
 
   test:
     runs-on: ubuntu-latest
@@ -36,10 +36,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies (apt)
-      run: sudo apt install perl sox libliquid-dev build-essential
+      run: sudo apt install perl sox libliquid-dev
     - name: Download test data (git-lfs)
       run: git lfs pull
     - name: compile (makefile)
-      run: make
+      run: make EXTRA_CFLAGS="-fsanitize=address,undefined"
     - name: run tests
       run: perl test/test.pl
