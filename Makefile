@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=gnu++11 -Wall -Wextra -Wstrict-overflow -Wshadow -Wdouble-promotion -Wundef -Wpointer-arith -Wcast-align -Wcast-qual -Wuninitialized -pedantic -Wno-return-type-c-linkage -O3
+CFLAGS=-std=gnu++11 -Wall -Wextra -Wstrict-overflow -Wshadow -Wdouble-promotion -Wundef -Wpointer-arith -Wcast-align -Wcast-qual -Wuninitialized -pedantic -Wno-unknown-pragmas -O3
 
 ifdef EXTRA_CFLAGS
 CFLAGS += ${EXTRA_CFLAGS}
