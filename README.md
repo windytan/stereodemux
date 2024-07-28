@@ -1,7 +1,8 @@
 # stereodemux
 
 This command-line tool converts an FM broadcast signal into stereo sound with de-emphasis applied.
-It is [tested](https://github.com/windytan/stereodemux/blob/master/test/test.pl) against Stereo Tool.
+It is [tested](https://github.com/windytan/stereodemux/blob/master/test/test.pl) against Stereo Tool
+at input samplerates 128 and 192 kHz.
 
 It expects 16-bit signed-integer MPX (FM demodulated mono PCM) via stdin and outputs stereo PCM to stdout.
 
@@ -25,19 +26,30 @@ You can choose either or; none is better than the other.
 
 This program reads and writes S16_LE samples via standard streams: single-channel input, stereo output.
 
-    ./demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db]
+    ./demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db] [--no-pilot] [--swap]
 
-    -r   Input sample rate (Hz).
+    -r, --samplerate-in
+            Input sample rate (Hz).
 
-    -R   Output sample rate (Hz). Must be less than or equal to the input sample rate.
-         The default is to use the input rate.
+    -R, --samplerate-out
+            Output sample rate (Hz). Must be less than or equal to the input sample rate.
+            The default is to use the input rate.
 
-    -g   Additional output gain (dB). Beware of clipping. 6 dB means doubled amplitude;
-         or you could give an amplitude ratio instead by adding an 'x'.
+    -g, --gain
+            Additional output gain (dB). Beware of clipping. 6 dB means doubled amplitude;
+            or you could give an amplitude ratio instead by adding an 'x'.
 
-    -d   Time constant of the de-emphasis filter (microseconds).
-         Meaningful values are 75 for the Americas and South Korea and
-         50 elsewhere; the default is 50.
+    -d, --deemph
+            Time constant of the de-emphasis filter (microseconds).
+            Meaningful values are 75 for the Americas and South Korea and
+            50 elsewhere; the default is 50.
+
+    --no-pilot
+            Station transmits stereo without a pilot tone (rare). A regenerated pilot tone will be
+            used to recover some resemblance of stereo separation.
+
+    --swap
+            Swap left and right channels.
 
 ## Examples
 

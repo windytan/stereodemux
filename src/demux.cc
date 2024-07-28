@@ -13,11 +13,6 @@
 
 // TODO: Only 1 'anti-alias' filter should be needed, because linear algebra
 
-// Hertz to radians per sample
-float angularFreq(float hertz, float samplerate) {
-  return hertz * 2.f * static_cast<float>(M_PI) / samplerate;
-}
-
 DeEmphasis::DeEmphasis(float time_constant_us, float samplerate) {
   // https://lehrer.bulme.at/~tr/SDR/PRE_DE_EMPHASIS_web.html
   const float cutoff =
@@ -51,13 +46,27 @@ void RunningAverage::push(float in) {
   idx = (idx + 1) % buffer.size();
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   const Options options = getOptions(argc, argv);
 
   if (options.print_usage) {
-    fprintf(
-        stderr,
-        "usage: demux -r <samplerate> [-R samplerate_out] [-d time_constant_μs] [-g gain_db]\n");
+    const std::vector<std::string> usage{
+        "usage: demux -r <samplerate> [OPTIONS]",
+        "",
+        "The program reads stdin and writes to stdout.",
+        "Audio format is S16LE PCM, single channel (MPX) in, stereo out.",
+        "",
+        "-r, --samplerate-in <rate>  Input sample rate (Hz).",
+        "-R, --samplerate-out <rate> Output sample rate (Hz).",
+        "-g, --gain <number>         Output gain; use 6 to get +6dB or 2x for doubled amplitude.",
+        "-d, --deemph <us>           De-emphasis time constant (microseconds), default is 50.",
+        "--no-pilot                  Workaround for stations transmitting stereo without a pilot "
+        "tone (rare).",
+        "--swap                      Swap left and right channels."};
+
+    for (const auto& line : usage) {
+      fprintf(stderr, "%s\n", line.c_str());
+    }
   }
 
   if (options.exit_failure) {
@@ -83,13 +92,15 @@ int main(int argc, char **argv) {
 
   const float gain = options.gain;
 
-  liquid::NCO nco_pilot_approx(angularFreq(kPilotHz, options.samplerate));
-  liquid::NCO nco_pilot_exact(angularFreq(kPilotHz, options.samplerate));
-  nco_pilot_exact.setPLLBandwidth(kPLLBandwidthHz / options.samplerate);
-  liquid::NCO nco_stereo_subcarrier(2.f * angularFreq(kPilotHz, options.samplerate));
+  const float pilot_freq_hz = 19000.f;
 
-  const int         pilotFirHalfLength = options.samplerate * 1e-6f * kPilotFIRUsec;
-  liquid::FIRFilter fir_pilot(pilotFirHalfLength * 2 + 1, kPilotFIRHalfbandHz / options.samplerate);
+  BPF bpf_pilot(pilot_freq_hz, options.samplerate);
+  BPF bpf_subc(38000.f, options.samplerate);
+
+  liquid::NCO nco_pilot_exact(angularFreq(pilot_freq_hz, options.samplerate));
+  nco_pilot_exact.setPLLBandwidth(kPLLBandwidthHz / options.samplerate);
+  liquid::NCO nco_stereo_subcarrier(38000.f / pilot_freq_hz *
+                                    angularFreq(pilot_freq_hz, options.samplerate));
 
   liquid::FIRFilterR fir_l_plus_r(kAudioFIRLengthUsec * 1e-6f * options.samplerate,
                                   kAudioFIRCutoffHz / options.samplerate);
@@ -98,6 +109,8 @@ int main(int argc, char **argv) {
 
   DeEmphasis     deemphasis(options.time_constant_us, options.samplerate);
   RunningAverage pilotnoise;
+
+  liquid::NCO nco_57(angularFreq(57000.f, options.samplerate));
 
   liquid::Resampler resampler(resample_ratio, 13);
 
@@ -111,13 +124,20 @@ int main(int argc, char **argv) {
     for (int n = 0; n < kBuflen; n++) {
       const float insample = inbuf[n];
 
-      // Pilot bandpass (mix-down + lowpass + mix-up)
-      fir_pilot.push(nco_pilot_approx.mixDown(insample));
-      const std::complex<float> pilot = nco_pilot_approx.mixUp(fir_pilot.execute());
-      nco_pilot_approx.step();
+      std::complex<float> pilot;
+      if (options.regenerate_pilot) {
+        pilot = bpf_subc.push(insample);
+
+        pilot = pilot * pilot;
+
+        pilot = nco_57.mixDown(pilot);
+        nco_57.step();
+      } else {
+        pilot = bpf_pilot.push(insample);
+      }
 
       // Generate 38 kHz carrier
-      nco_stereo_subcarrier.setPhase(2 * nco_pilot_exact.getPhase());
+      nco_stereo_subcarrier.setPhase(2.f * nco_pilot_exact.getPhase());
 
       // Pilot PLL
       const float phase_error = std::arg(pilot * std::conj(nco_pilot_exact.getComplex()));
@@ -128,7 +148,10 @@ int main(int argc, char **argv) {
       // Revert to mono if there is no pilot tone
       if (n % 4 == 0)
         pilotnoise.push(phase_error * phase_error);
-      const float stereogain = std::min(std::max(kStereoSeparation - pilotnoise.get(), 0.f), 1.f);
+      const float stereogain =
+          options.regenerate_pilot
+              ? 1.f
+              : std::min(std::max(kStereoSeparation - pilotnoise.get(), 0.f), 1.f);
 
       // Decode stereo & anti-alias
       fir_l_plus_r.push(insample);
@@ -136,8 +159,11 @@ int main(int argc, char **argv) {
       const float l_plus_r  = fir_l_plus_r.execute();
       const float l_minus_r = 2 * fir_l_minus_r.execute() * stereogain;
 
-      const float left  = (l_plus_r + l_minus_r) * gain;
-      const float right = (l_plus_r - l_minus_r) * gain;
+      float left  = (l_plus_r + l_minus_r) * gain;
+      float right = (l_plus_r - l_minus_r) * gain;
+
+      if (options.swap)
+        std::swap(left, right);
 
       // TODO: Combined FIR should be run here
       const StereoSampleF32 stereo = deemphasis.run({left, right});
