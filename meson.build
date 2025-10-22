@@ -51,6 +51,11 @@ if build_machine.system() == 'darwin'
   endif
   liquid = declare_dependency(dependencies : liquid_lib,
                               include_directories : liquid_inc)
+elif build_machine.system() == 'freebsd'
+  liquid_lib = cc.find_library('liquid', dirs : ['/usr/local/lib'])
+  liquid_inc = include_directories('/usr/local/include')
+  liquid = declare_dependency(dependencies : liquid_lib,
+                              include_directories : liquid_inc)
 else
   liquid = cc.find_library('liquid')
 endif
