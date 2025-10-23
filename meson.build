@@ -1,4 +1,4 @@
-project('stereodemux', 'cpp', default_options : ['warning_level=3', 'buildtype=release', 'optimization=3'],
+project('stereodemux', 'cpp', default_options : ['warning_level=3', 'buildtype=release', 'optimization=3', 'prefix=/usr/local', 'cpp_std=c++11'],
         version: '1.0')
 
 # Store version number to be compiled in
@@ -24,9 +24,9 @@ endif
 
 # Explicit GNU extensions on Cygwin
 if build_machine.system() == 'cygwin'
-  add_project_arguments('-std=gnu++11', language : 'cpp')
+  override_options = ['cpp_std=gnu++11']
 else
-  add_project_arguments('-std=c++11', language : 'cpp')
+  override_options = []
 endif
 
 
@@ -38,19 +38,19 @@ endif
 # Find liquid-dsp
 if build_machine.system() == 'darwin'
   fs = import('fs')
-  # Homebrew system
-  if fs.is_dir('/opt/homebrew/lib')
-    liquid_lib = cc.find_library('liquid',
-                 dirs : ['/opt/homebrew/lib'])
-    liquid_inc = include_directories('/opt/homebrew/include')
-  # MacPorts system
-  else
-    liquid_lib = cc.find_library('liquid',
-                 dirs : ['/opt/local/lib'])
+  brew = find_program('brew', required: false)
+  if brew.found()
+    # Homebrew system
+    liquid_prefix = run_command(brew, '--prefix', 'liquid-dsp', check: true).stdout().strip()
+    liquid_lib = cc.find_library('liquid', dirs: [liquid_prefix + '/lib'])
+    liquid_inc = include_directories(liquid_prefix + '/include')
+    liquid = declare_dependency(dependencies: liquid_lib, include_directories: liquid_inc)
+  elif fs.is_dir('/opt/local/lib')
+    # MacPorts system
+    liquid_lib = cc.find_library('liquid', dirs: ['/opt/local/lib'])
     liquid_inc = include_directories('/opt/local/include')
+    liquid = declare_dependency(dependencies: liquid_lib, include_directories: liquid_inc)
   endif
-  liquid = declare_dependency(dependencies : liquid_lib,
-                              include_directories : liquid_inc)
 elif build_machine.system() == 'freebsd'
   liquid_lib = cc.find_library('liquid', dirs : ['/usr/local/lib'])
   liquid_inc = include_directories('/usr/local/include')

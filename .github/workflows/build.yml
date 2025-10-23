@@ -19,9 +19,9 @@ jobs:
     - name: compile (makefile)
       run: make
 
-  build-debian-oldoldstable:
+  build-debian-bullseye:
     runs-on: ubuntu-latest
-    container: debian:buster
+    container: debian:bullseye
 
     steps:
     - uses: actions/checkout@v4
