@@ -2,7 +2,7 @@
  * windytan */
 #include "demux.h"
 
-#include <getopt.h>
+#include <array>
 #include <cmath>
 #include <complex>
 #include <cstdio>
@@ -10,6 +10,8 @@
 
 #include "liquid_wrappers.h"
 #include "options.h"
+
+namespace stereodemux {
 
 // TODO: Only 1 'anti-alias' filter should be needed, because linear algebra
 
@@ -51,9 +53,7 @@ void RunningAverage::push(float in) {
   idx = (idx + 1) % buffer.size();
 }
 
-int main(int argc, char **argv) {
-  const Options options = getOptions(argc, argv);
-
+int run(const Options& options) {
   if (options.print_usage) {
     fprintf(
         stderr,
@@ -77,9 +77,9 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   };
 
-  int16_t         inbuf[kBuflen];
-  StereoSampleS16 outbuf[kBuflen];
-  StereoSampleS16 resampled_outbuf[kBuflen];
+  std::array<int16_t, kBuflen>         inbuf;
+  std::array<StereoSampleS16, kBuflen> outbuf;
+  std::array<StereoSampleS16, kBuflen> resampled_outbuf;
 
   const float gain = options.gain;
 
@@ -91,10 +91,10 @@ int main(int argc, char **argv) {
   const int         pilotFirHalfLength = options.samplerate * 1e-6f * kPilotFIRUsec;
   liquid::FIRFilter fir_pilot(pilotFirHalfLength * 2 + 1, kPilotFIRHalfbandHz / options.samplerate);
 
-  liquid::FIRFilterR fir_l_plus_r(kAudioFIRLengthUsec * 1e-6f * options.samplerate,
-                                  kAudioFIRCutoffHz / options.samplerate);
-  liquid::FIRFilterR fir_l_minus_r(kAudioFIRLengthUsec * 1e-6f * options.samplerate,
-                                   kAudioFIRCutoffHz / options.samplerate);
+  liquid::FIRFilterR fir_sum(kAudioFIRLengthUsec * 1e-6f * options.samplerate,
+                             kAudioFIRCutoffHz / options.samplerate);
+  liquid::FIRFilterR fir_diff(kAudioFIRLengthUsec * 1e-6f * options.samplerate,
+                              kAudioFIRCutoffHz / options.samplerate);
 
   DeEmphasis     deemphasis(options.time_constant_us, options.samplerate);
   RunningAverage pilotnoise;
@@ -105,10 +105,10 @@ int main(int argc, char **argv) {
     pilotnoise.push(9.f);
   }
 
-  while (fread(&inbuf, sizeof(inbuf[0]), kBuflen, stdin)) {
+  while (fread(&inbuf, sizeof(inbuf[0]), inbuf.size(), stdin)) {
     unsigned int i_resampled = 0;
 
-    for (int n = 0; n < kBuflen; n++) {
+    for (std::size_t n = 0; n < inbuf.size(); n++) {
       const float insample = inbuf[n];
 
       // Pilot bandpass (mix-down + lowpass + mix-up)
@@ -131,23 +131,23 @@ int main(int argc, char **argv) {
       const float stereogain = std::min(std::max(kStereoSeparation - pilotnoise.get(), 0.f), 1.f);
 
       // Decode stereo & anti-alias
-      fir_l_plus_r.push(insample);
-      fir_l_minus_r.push(nco_stereo_subcarrier.mixDown(insample).imag());
-      const float l_plus_r  = fir_l_plus_r.execute();
-      const float l_minus_r = 2 * fir_l_minus_r.execute() * stereogain;
+      fir_sum.push(insample);
+      fir_diff.push(nco_stereo_subcarrier.mixDown(insample).imag());
+      const float sum  = fir_sum.execute();
+      const float diff = 2.f * fir_diff.execute() * stereogain;
 
-      const float left  = (l_plus_r + l_minus_r) * gain;
-      const float right = (l_plus_r - l_minus_r) * gain;
+      const float left  = (sum + diff) * gain;
+      const float right = (sum - diff) * gain;
 
       // TODO: Combined FIR should be run here
       const StereoSampleF32 stereo = deemphasis.run({left, right});
 
       if (do_resample) {
-        static std::complex<float> out[1];
+        std::complex<float> out;
 
-        if (resampler.execute(std::complex<float>(stereo.l, stereo.r), out)) {
-          resampled_outbuf[i_resampled].l = out[0].real();
-          resampled_outbuf[i_resampled].r = out[0].imag();
+        if (resampler.execute(std::complex<float>(stereo.l, stereo.r), &out)) {
+          resampled_outbuf[i_resampled].l = out.real();
+          resampled_outbuf[i_resampled].r = out.imag();
           i_resampled++;
         }
       } else {
@@ -165,4 +165,11 @@ int main(int argc, char **argv) {
   }
 
   return EXIT_SUCCESS;
+}
+
+}  // namespace stereodemux
+
+int main(int argc, char** argv) {
+  const stereodemux::Options options = stereodemux::getOptions(argc, argv);
+  return stereodemux::run(options);
 }

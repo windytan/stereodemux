@@ -4,6 +4,8 @@
 
 #include "liquid_wrappers.h"
 
+namespace stereodemux {
+
 constexpr int   kBuflen             = 8192;  // I/O buffer length
 constexpr float kMinimumSampleRate  = 106000.0f;
 constexpr float kPilotHz            = 19000.0f;
@@ -60,3 +62,5 @@ class RunningAverage {
   float                      sum{0.f};
   int                        idx{0};
 };
+
+}  // namespace stereodemux
